@@ -7,4 +7,5 @@ RUN python3 -m pip install pygame
 
 ENV DISPLAY=host.docker.internal:0.0
 
+CMD ["/usr/local/bin/python3", "-m", "pip -r requirements.txt"]
 CMD ["/usr/local/bin/python3", "runner.py"]
