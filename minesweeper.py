@@ -229,7 +229,7 @@ class MinesweeperAI():
                if they can be inferred from existing knowledge
         """
         self.moves_made.add(cell)
-        self.safes.add(cell)
+        self.mark_safe(cell)
 
         # Add a new sentence to the knowledge base
         neighbors = set()
@@ -360,9 +360,8 @@ class MinesweeperAI():
 
         return moveMade
 
-# game = Minesweeper(4,5,5)
-# ai = MinesweeperAI(4,4)
-# ai.add_knowledge((0,0), 1)
+# game = Minesweeper(8,8,8)
+# ai = MinesweeperAI(8,8)
 # while True:
 #     move = ai.make_safe_move()
 #     if move is None:
@@ -379,6 +378,8 @@ class MinesweeperAI():
 #     if move:
 #         if game.is_mine(move):
 #             print(move, "Stepped on mine")
+
+#             print(ai.safes, ai.mines, ai.moves_made)
 #             break
 #         else:
 #             nearby = game.nearby_mines(move)
