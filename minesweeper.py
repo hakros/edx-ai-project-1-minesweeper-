@@ -1,6 +1,5 @@
 import itertools
 import random
-import time
 
 
 class Minesweeper():
@@ -237,21 +236,23 @@ class MinesweeperAI():
             for col in range(cell[1] - 1, cell[1] + 2):
                 neighbor = (row, col)
 
+                # Decrement count to reflect that one of the neighboring cells is a mine
                 if neighbor in self.mines:
                     count -= 1
                     continue
 
                 if (
-                    neighbor in self.safes or
-                    neighbor == cell or
-                    row >= self.height or
-                    row < 0 or
-                    col < 0 or
-                    col >= self.width):
+                        neighbor in self.safes or
+                        neighbor == cell or
+                        row >= self.height or
+                        row < 0 or
+                        col < 0 or
+                        col >= self.width):
                     continue
 
                 neighbors.add(neighbor)
 
+        # Only add a new sentence if there are unexplored neighbors
         if (len(neighbors) > 0):
             sentence = Sentence(
                 cells=neighbors,
@@ -264,27 +265,38 @@ class MinesweeperAI():
 
         newInferences = True
 
+        # Create new inferences
         while newInferences:
             newInferences = False
             knownSafes = set()
             knownMines = set()
 
+            # Check for known safes an mines
             for sentence in self.knowledge:
                 if sentence.known_safes():
                     knownSafes.update(sentence.known_safes())
                 if sentence.known_mines():
                     knownMines.update(sentence.known_mines())
 
+            # If the cell is a known safe cell,
+            # mark it as safe in all sentences.
+            # This means that our knowledge base has been updated.
+            # Which means that we need to check for new sentences that we can infer
             for cell in knownSafes:
                 if cell not in self.safes:
                     self.mark_safe(cell)
                     newInferences = True
 
+            # If the cell is a known mine cell,
+            # mark it as a mine in all sentences.
+            # This means that our knowledge base has been updated.
+            # Which means that we need to check for new sentences that we can infer
             for cell in knownMines:
                 if cell not in self.mines:
                     self.mark_mine(cell)
                     newInferences = True
 
+            # Use subset algorithm to infer new sentences
             newSentences = []
             for sentence in self.knowledge.copy():
                 # infer new sentences
@@ -325,8 +337,7 @@ class MinesweeperAI():
         and self.moves_made, but should not modify any of those values.
         """
         for cell in self.safes:
-            if (
-                cell in self.moves_made):
+            if cell in self.moves_made:
                 continue
 
             return cell
@@ -358,31 +369,3 @@ class MinesweeperAI():
         self.moves_made.add(moveMade)
 
         return moveMade
-
-
-def test_minesweeper_ai():
-    # Initialize the game and AI
-    game = Minesweeper(height=4, width=4, mines=1)
-    ai = MinesweeperAI(height=4, width=4)
-
-    # Manually set a known mine for this test case
-    known_mine = (0, 0)
-    game.mines.add(known_mine)
-    game.board[0][0] = True
-
-    # Inform AI of the known mine
-    ai.mark_mine(known_mine)
-
-    # Manually add a sentence to AI's knowledge
-    ai.knowledge.append(Sentence({(1, 2), (0, 3), (1, 3)}, 1))
-
-    # Invoke add_knowledge on a cell that is safe
-    ai.add_knowledge((1, 1), 1)
-
-    # Check the knowledge base and state of AI
-    print(f"Mines: {ai.mines}")
-    print(f"Safes: {ai.safes}")
-    for sentence in ai.knowledge:
-        print(f"Sentence: {sentence}")
-
-test_minesweeper_ai()
