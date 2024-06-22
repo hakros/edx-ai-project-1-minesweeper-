@@ -1,7 +1,5 @@
 import itertools
 import random
-import time
-
 
 class Minesweeper():
     """
@@ -237,9 +235,12 @@ class MinesweeperAI():
             for col in range(cell[1] - 1, cell[1] + 2):
                 neighbor = (row, col)
 
+                if neighbor in self.mines:
+                    count -= 1
+                    continue
+
                 if (
                     neighbor in self.safes or
-                    neighbor in self.mines or
                     neighbor == cell or
                     row >= self.height or
                     row < 0 or
@@ -249,15 +250,13 @@ class MinesweeperAI():
 
                 neighbors.add(neighbor)
 
-        if (len(neighbors) <= 0):
-            return None
+        if (len(neighbors) > 0):
+            sentence = Sentence(
+                cells=neighbors,
+                count=count
+            )
 
-        sentence = Sentence(
-            cells=neighbors,
-            count=count
-        )
-
-        self.knowledge.append(sentence)
+            self.knowledge.append(sentence)
 
         self.mark_additional_cells()
 
@@ -285,9 +284,9 @@ class MinesweeperAI():
                     newInferences = True
 
             newSentences = []
-            for sentence in self.knowledge:
+            for sentence in self.knowledge.copy():
                 # infer new sentences
-                for potential_subset in self.knowledge:
+                for potential_subset in self.knowledge.copy():
                     if sentence == potential_subset:
                         continue
 
@@ -300,11 +299,9 @@ class MinesweeperAI():
                             count=new_count
                         )
 
-                        if newSentence in self.knowledge:
-                            continue
-
-                        newSentences.append(newSentence)
-                        newInferences = True
+                        if len(new_cells) > 0 and newSentence not in self.knowledge:
+                            newSentences.append(newSentence)
+                            newInferences = True
 
             if len(newSentences) <= 0:
                 continue
@@ -359,30 +356,3 @@ class MinesweeperAI():
         self.moves_made.add(moveMade)
 
         return moveMade
-
-# game = Minesweeper(8,8,8)
-# ai = MinesweeperAI(8,8)
-# while True:
-#     move = ai.make_safe_move()
-#     if move is None:
-#         move = ai.make_random_move()
-#         if move is None:
-#             flags = ai.mines.copy()
-#             print("No moves left to make.")
-#             break
-#         else:
-#             print(move, "No known safe moves, AI making random move.")
-#     else:
-#         print(move, "AI making safe move.")
-
-#     if move:
-#         if game.is_mine(move):
-#             print(move, "Stepped on mine")
-
-#             print(ai.safes, ai.mines, ai.moves_made)
-#             break
-#         else:
-#             nearby = game.nearby_mines(move)
-#             ai.add_knowledge(move, nearby)
-
-#     time.sleep(1)
