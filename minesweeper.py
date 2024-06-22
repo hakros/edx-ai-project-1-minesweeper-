@@ -1,5 +1,6 @@
 import itertools
 import random
+import time
 
 
 class Minesweeper():
@@ -178,6 +179,40 @@ class MinesweeperAI():
         for sentence in self.knowledge:
             sentence.mark_safe(cell)
 
+    def mark_additional_cells(self):
+        """
+        Marks additional cells as safe or as mines if it can be
+        concluded based on the AI's knowledge base.
+        """
+        mines = []
+        safes = []
+        for sentence in self.knowledge:
+            # mark any additional cells as mines if it can be concluded based on the AI's knowledge base
+            if sentence.known_mines():
+                for cell in sentence.known_mines():
+                    if cell in self.mines:
+                        continue
+
+                    mines.append(cell)
+
+                continue
+
+            # mark any additional cells as safe if it can be concluded based on the AI's knowledge base
+            if sentence.known_safes():
+                for cell in sentence.known_safes():
+                    if cell in self.safes:
+                        continue
+
+                    safes.append(cell)
+
+                continue
+
+        for mine in mines:
+            self.mark_mine(mine)
+
+        for safe in safes:
+            self.mark_safe(safe)
+
     def add_knowledge(self, cell, count):
         """
         Called when the Minesweeper board tells us, for a given
@@ -194,27 +229,28 @@ class MinesweeperAI():
                if they can be inferred from existing knowledge
         """
         self.moves_made.add(cell)
-        self.safes.add(cell)
+        self.mark_safe(cell)
 
+        # Add a new sentence to the knowledge base
         neighbors = set()
+        for row in range(cell[0] - 1, cell[0] + 2):
+            for col in range(cell[1] - 1, cell[1] + 2):
+                neighbor = (row, col)
 
-        boardArea = self.width * self.height
-        for i in range(boardArea):
-            row = i // self.height
-            col = i % self.width
+                if (
+                    neighbor in self.safes or
+                    neighbor in self.mines or
+                    neighbor == cell or
+                    row >= self.height or
+                    row < 0 or
+                    col < 0 or
+                    col >= self.width):
+                    continue
 
-            neighbor = (row, col)
+                neighbors.add(neighbor)
 
-            if (
-                neighbor in self.safes or
-                neighbor in self.mines or
-                neighbor == cell or
-                ((row - cell[0]) != 1 and (row - cell[0]) != -1) or
-                ((col - cell[1]) != 1 and (col - cell[1]) != -1)
-            ):
-                continue
-
-            neighbors.add(neighbor)
+        if (len(neighbors) <= 0):
+            return None
 
         sentence = Sentence(
             cells=neighbors,
@@ -223,54 +259,60 @@ class MinesweeperAI():
 
         self.knowledge.append(sentence)
 
-        mines = []
-        safes = []
-        newSentences = []
-        for sentence in self.knowledge:
-            if sentence.known_mines():
-                for cell in sentence.known_mines():
-                    if cell in self.mines:
+        self.mark_additional_cells()
+
+        newInferences = True
+
+        while newInferences:
+            newInferences = False
+            knownSafes = set()
+            knownMines = set()
+
+            for sentence in self.knowledge:
+                if sentence.known_safes():
+                    knownSafes.update(sentence.known_safes())
+                if sentence.known_mines():
+                    knownMines.update(sentence.known_mines())
+
+            for cell in knownSafes:
+                if cell not in self.safes:
+                    self.mark_safe(cell)
+                    newInferences = True
+
+            for cell in knownMines:
+                if cell not in self.mines:
+                    self.mark_mine(cell)
+                    newInferences = True
+
+            newSentences = []
+            for sentence in self.knowledge:
+                # infer new sentences
+                for potential_subset in self.knowledge:
+                    if sentence == potential_subset:
                         continue
 
-                    mines.append(cell)
+                    if potential_subset.cells.issubset(sentence.cells):
+                        new_count = sentence.count - potential_subset.count
+                        new_cells = sentence.cells - potential_subset.cells
 
-            if sentence.known_safes():
-                for cell in sentence.known_safes():
-                    if cell in self.safes:
-                        continue
+                        newSentence = Sentence(
+                            cells=new_cells,
+                            count=new_count
+                        )
 
-                    safes.append(cell)
+                        if newSentence in self.knowledge:
+                            continue
 
-            for potential_subset in self.knowledge:
-                if sentence == potential_subset:
-                    continue
+                        newSentences.append(newSentence)
+                        newInferences = True
 
-                if potential_subset.cells.issubset(sentence.cells):
-                    new_count = sentence.count - potential_subset.count
-                    new_cells = sentence.cells - potential_subset.cells
+            if len(newSentences) <= 0:
+                continue
 
-                    newSentence = Sentence(
-                        cells=new_cells,
-                        count=new_count
-                    )
+            for sentence in newSentences:
+                self.knowledge.append(sentence)
 
-                    if newSentence in self.knowledge:
-                        continue
-
-                    newSentences.append(newSentence)
-
-        for mine in mines:
-            self.mark_mine(mine)
-
-        for safe in safes:
-            self.mark_safe(safe)
-
-        for sentence in newSentences:
-            for cell in sentence.cells:
-                if cell in self.mines or cell in self.safes:
-                    continue
-
-                self.add_knowledge(cell, sentence.count)
+        self.mark_additional_cells()
 
         return None
 
@@ -284,8 +326,11 @@ class MinesweeperAI():
         and self.moves_made, but should not modify any of those values.
         """
         for cell in self.safes:
-            if cell not in self.moves_made:
-                return cell
+            if (
+                cell in self.moves_made):
+                continue
+
+            return cell
 
         return None
 
@@ -296,21 +341,48 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
-        boardArea = self.width * self.height
-
         possibleMoves = []
-        for i in range(boardArea):
-            row = i // self.height
-            col = i % self.width
+        for row in range(self.height):
+            for col in range(self.width):
+                cell = (row, col)
 
-            cell = (row, col)
+                if cell in self.moves_made or cell in self.mines:
+                    continue
 
-            if cell in self.moves_made or cell in self.mines:
-                continue
-
-            possibleMoves.append(cell)
+                possibleMoves.append(cell)
 
         if len(possibleMoves) == 0:
             return None
-        
-        return random.choice(possibleMoves)
+
+        moveMade = random.choice(possibleMoves)
+
+        self.moves_made.add(moveMade)
+
+        return moveMade
+
+# game = Minesweeper(8,8,8)
+# ai = MinesweeperAI(8,8)
+# while True:
+#     move = ai.make_safe_move()
+#     if move is None:
+#         move = ai.make_random_move()
+#         if move is None:
+#             flags = ai.mines.copy()
+#             print("No moves left to make.")
+#             break
+#         else:
+#             print(move, "No known safe moves, AI making random move.")
+#     else:
+#         print(move, "AI making safe move.")
+
+#     if move:
+#         if game.is_mine(move):
+#             print(move, "Stepped on mine")
+
+#             print(ai.safes, ai.mines, ai.moves_made)
+#             break
+#         else:
+#             nearby = game.nearby_mines(move)
+#             ai.add_knowledge(move, nearby)
+
+#     time.sleep(1)
